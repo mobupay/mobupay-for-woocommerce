@@ -1,0 +1,20 @@
+{
+  "name": "mobupay/mobupay-for-woocommerce",
+  "description": "Passerelle de paiement Mobupay pour WooCommerce (modele redirect / page hebergee).",
+  "type": "wordpress-plugin",
+  "license": "GPL-2.0-or-later",
+  "require": {
+    "php": ">=7.4",
+    "mobupay/mobupay-php": "*"
+  },
+  "repositories": [
+    {
+      "type": "path",
+      "url": "../../../sdk/php",
+      "options": { "symlink": false }
+    }
+  ],
+  "config": {
+    "optimize-autoloader": true
+  }
+}

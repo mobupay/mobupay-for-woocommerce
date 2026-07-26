@@ -1,0 +1,137 @@
+# Copyright (C) 2026 Mobupay
+# This file is distributed under the same license as the Mobupay for WooCommerce plugin.
+msgid ""
+msgstr ""
+"Project-Id-Version: Mobupay for WooCommerce 1.0.0\n"
+"Report-Msgid-Bugs-To: https://mobupay.nc\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Domain: mobupay-for-woocommerce\n"
+"Language: fr_FR\n"
+"Plural-Forms: nplurals=2; plural=(n > 1);\n"
+
+#. Plugin admin notice when WooCommerce is inactive
+#: mobupay-for-woocommerce.php:56
+msgid "Mobupay for WooCommerce nécessite WooCommerce actif."
+msgstr ""
+
+#. Action link on the plugins list
+#: mobupay-for-woocommerce.php:75
+msgid "Réglages"
+msgstr ""
+
+#: includes/class-wc-gateway-mobupay.php:26
+msgid "Mobupay"
+msgstr ""
+
+#: includes/class-wc-gateway-mobupay.php:27
+msgid "Paiement par carte via Mobupay. Le client paie sur une page hébergée sécurisée (widget Monext)."
+msgstr ""
+
+#: includes/class-wc-gateway-mobupay.php:35
+#: includes/class-wc-gateway-mobupay.php:76
+msgid "Carte bancaire (Mobupay)"
+msgstr ""
+
+#: includes/class-wc-gateway-mobupay.php:67
+msgid "Activer / Désactiver"
+msgstr ""
+
+#: includes/class-wc-gateway-mobupay.php:69
+msgid "Activer le paiement par carte Mobupay"
+msgstr ""
+
+#: includes/class-wc-gateway-mobupay.php:73
+msgid "Titre"
+msgstr ""
+
+#: includes/class-wc-gateway-mobupay.php:75
+msgid "Libellé affiché au client lors du paiement."
+msgstr ""
+
+#: includes/class-wc-gateway-mobupay.php:80
+msgid "Description"
+msgstr ""
+
+#: includes/class-wc-gateway-mobupay.php:82
+msgid "Vous serez redirigé vers une page sécurisée pour payer par carte."
+msgstr ""
+
+#: includes/class-wc-gateway-mobupay.php:85
+msgid "Mode test (sandbox)"
+msgstr ""
+
+#: includes/class-wc-gateway-mobupay.php:87
+msgid "Utiliser l'environnement de test (clé sk_test_*)"
+msgstr ""
+
+#: includes/class-wc-gateway-mobupay.php:89
+msgid "En mode test, aucun paiement réel n'est encaissé."
+msgstr ""
+
+#: includes/class-wc-gateway-mobupay.php:92
+msgid "Clé API de test"
+msgstr ""
+
+#: includes/class-wc-gateway-mobupay.php:94
+msgid "Clé sk_test_* (espace marchand > Développeurs > Clés API)."
+msgstr ""
+
+#: includes/class-wc-gateway-mobupay.php:98
+msgid "Clé API de production"
+msgstr ""
+
+#: includes/class-wc-gateway-mobupay.php:100
+msgid "Clé sk_live_* (disponible une fois votre dossier approuvé)."
+msgstr ""
+
+#: includes/class-wc-gateway-mobupay.php:104
+msgid "Secret de signature des webhooks"
+msgstr ""
+
+#. translators: %s = URL du webhook à configurer
+#: includes/class-wc-gateway-mobupay.php:108
+msgid "Secret whsec_* pour vérifier les webhooks. URL à renseigner côté Mobupay (notificationUrl) : %s"
+msgstr ""
+
+#: includes/class-wc-gateway-mobupay.php:114
+msgid "Base API"
+msgstr ""
+
+#: includes/class-wc-gateway-mobupay.php:116
+msgid "Avancé. Ne modifier que sur instruction du support Mobupay."
+msgstr ""
+
+#: includes/class-wc-gateway-mobupay.php:133
+#: includes/class-wc-gateway-mobupay.php:256
+msgid "Commande introuvable."
+msgstr ""
+
+#: includes/class-wc-gateway-mobupay.php:162
+msgid "Le paiement n'a pas pu être initialisé. Réessayez."
+msgstr ""
+
+#: includes/class-wc-gateway-mobupay.php:168
+msgid "En attente du paiement Mobupay."
+msgstr ""
+
+#: includes/class-wc-gateway-mobupay.php:217
+msgid "Paiement Mobupay confirmé."
+msgstr ""
+
+#: includes/class-wc-gateway-mobupay.php:221
+msgid "Paiement Mobupay refusé."
+msgstr ""
+
+#: includes/class-wc-gateway-mobupay.php:226
+msgid "Paiement Mobupay abandonné / expiré."
+msgstr ""
+
+#: includes/class-wc-gateway-mobupay.php:230
+msgid "Remboursement Mobupay enregistré."
+msgstr ""
+
+#: includes/class-wc-gateway-mobupay.php:260
+msgid "Identifiant de paiement Mobupay absent."
+msgstr ""
