@@ -22,6 +22,10 @@ on:
         description: "Référence du SDK PHP à empaqueter dans lib/ (étiquette de mobupay/mobupay-php)"
         required: true
         default: "v1.0.0"
+      title:
+        description: "Titre de la release (laisser vide pour reprendre le nom de l'étiquette)"
+        required: false
+        default: ""
       notes:
         description: "Notes de version (laisser vide pour les notes générées par GitHub)"
         required: false
@@ -101,6 +105,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ inputs.tag }}
+          TITLE: ${{ inputs.title }}
           NOTES: ${{ inputs.notes }}
         run: |
           set -euo pipefail
@@ -110,12 +115,16 @@ jobs:
             echo "      puis relancer ce workflow." >&2
             exit 1
           fi
+          # Le titre par défaut est le nom de l'étiquette, mais une release déjà
+          # publiée porte souvent un titre lisible : le reprendre à l'identique
+          # évite de dégrader ce que voit un marchand.
+          [ -n "$TITLE" ] || TITLE="$TAG"
           if [ -n "$NOTES" ]; then
             printf '%s\n' "$NOTES" > notes.md
             gh release create "$TAG" "$ZIP" --repo "$GITHUB_REPOSITORY" \
-              --title "$TAG" --notes-file notes.md
+              --title "$TITLE" --notes-file notes.md
           else
             gh release create "$TAG" "$ZIP" --repo "$GITHUB_REPOSITORY" \
-              --title "$TAG" --generate-notes
+              --title "$TITLE" --generate-notes
           fi
           echo "[OK] Release $TAG créée, attribuée à github-actions[bot]."
