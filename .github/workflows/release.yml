@@ -39,13 +39,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Récupérer le plugin à l'étiquette demandée
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: ${{ inputs.tag }}
           path: plugin
 
       - name: Récupérer le SDK PHP
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           repository: mobupay/mobupay-php
           ref: ${{ inputs.sdk_ref }}
