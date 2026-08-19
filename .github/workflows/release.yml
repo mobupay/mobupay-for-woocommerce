@@ -1,0 +1,121 @@
+name: Release
+
+# La release est créée PAR CE WORKFLOW, jamais à la main dans l'interface GitHub.
+#
+# Motif : l'auteur d'une release n'est pas modifiable après coup, et une release
+# créée dans l'interface porte le compte personnel de qui a cliqué. C'est ainsi
+# que ce dépôt public d'organisation s'est retrouvé rattaché à une personne
+# (constaté le 2026-08-20). Créée par un workflow, elle est attribuée à
+# github-actions[bot], qui n'est le compte de personne.
+#
+# Le zip reproduit exactement scripts/build-connector-zip.sh du monorepo : le SDK
+# PHP est empaqueté dans lib/ parce qu'un marchand WordPress n'a pas composer.
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Étiquette à publier (elle doit déjà exister, ex : v1.0.0)"
+        required: true
+        default: "v1.0.0"
+      sdk_ref:
+        description: "Référence du SDK PHP à empaqueter dans lib/ (étiquette de mobupay/mobupay-php)"
+        required: true
+        default: "v1.0.0"
+      notes:
+        description: "Notes de version (laisser vide pour les notes générées par GitHub)"
+        required: false
+        default: ""
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Récupérer le plugin à l'étiquette demandée
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag }}
+          path: plugin
+
+      - name: Récupérer le SDK PHP
+        uses: actions/checkout@v4
+        with:
+          repository: mobupay/mobupay-php
+          ref: ${{ inputs.sdk_ref }}
+          path: sdk
+
+      - name: Construire le zip distribuable
+        env:
+          TAG: ${{ inputs.tag }}
+        run: |
+          set -euo pipefail
+          SLUG=mobupay-for-woocommerce
+          VERSION="${TAG#v}"
+          STAGE="$(mktemp -d)"
+          mkdir -p "$STAGE/$SLUG"
+
+          # 1. Fichiers du plugin. SECURITY.md et .github appartiennent au dépôt,
+          #    pas au plugin installé chez le marchand : ils ne sont pas distribués.
+          (cd plugin && tar cf - \
+            --exclude='.git*' --exclude='.github' --exclude='SECURITY.md' \
+            --exclude='node_modules' --exclude='vendor' --exclude='test-harness' \
+            --exclude='*.zip' --exclude='.env*' \
+            .) | (cd "$STAGE/$SLUG" && tar xf -)
+
+          # 2. SDK dans lib/mobupay-php (source + LICENSE + composer.json).
+          mkdir -p "$STAGE/$SLUG/lib/mobupay-php/src"
+          cp sdk/src/*.php     "$STAGE/$SLUG/lib/mobupay-php/src/"
+          cp sdk/LICENSE       "$STAGE/$SLUG/lib/mobupay-php/LICENSE"
+          cp sdk/composer.json "$STAGE/$SLUG/lib/mobupay-php/composer.json"
+
+          # wordpress.org rejette le cURL direct : la passerelle injecte toujours
+          # le transport wp_remote_*, donc CurlTransport serait du code mort dans
+          # le zip et Plugin Check le signalerait.
+          rm -f "$STAGE/$SLUG/lib/mobupay-php/src/CurlTransport.php"
+
+          # 3. Jamais d'URL de recette ni de secret réel dans un zip distribué.
+          if grep -rnE "staging\.mobupay\.nc|sk_(live|test)_[A-Za-z0-9]{16,}|whsec_[A-Za-z0-9]{16,}" "$STAGE/$SLUG"; then
+            echo "[ERR] Motif interdit détecté dans le zip (recette/secret). Abandon." >&2
+            exit 1
+          fi
+
+          # 4. Garde de dérive : ces trois chemins n'ont jamais leur place dans le zip.
+          for f in SECURITY.md .github lib/mobupay-php/src/CurlTransport.php; do
+            if [ -e "$STAGE/$SLUG/$f" ]; then
+              echo "[ERR] $f présent dans le zip. Abandon." >&2
+              exit 1
+            fi
+          done
+
+          ZIP="$GITHUB_WORKSPACE/$SLUG-$VERSION.zip"
+          (cd "$STAGE" && zip -rq "$ZIP" "$SLUG")
+          echo "ZIP=$ZIP" >> "$GITHUB_ENV"
+
+          echo "--- contenu du zip ---"
+          unzip -Z1 "$ZIP" | sort
+
+      - name: Créer la release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.tag }}
+          NOTES: ${{ inputs.notes }}
+        run: |
+          set -euo pipefail
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "[ERR] La release $TAG existe déjà." >&2
+            echo "      Son auteur n'étant pas modifiable, la supprimer d'abord," >&2
+            echo "      puis relancer ce workflow." >&2
+            exit 1
+          fi
+          if [ -n "$NOTES" ]; then
+            printf '%s\n' "$NOTES" > notes.md
+            gh release create "$TAG" "$ZIP" --repo "$GITHUB_REPOSITORY" \
+              --title "$TAG" --notes-file notes.md
+          else
+            gh release create "$TAG" "$ZIP" --repo "$GITHUB_REPOSITORY" \
+              --title "$TAG" --generate-notes
+          fi
+          echo "[OK] Release $TAG créée, attribuée à github-actions[bot]."
