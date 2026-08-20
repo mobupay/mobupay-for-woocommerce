@@ -3,7 +3,7 @@ Contributors: mobupay
 Tags: payments, payment gateway, credit card, woocommerce, new caledonia
 Requires at least: 6.0
 Tested up to: 7.0
-Stable tag: 1.0.0
+Stable tag: 1.0.1
 Requires PHP: 7.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -87,10 +87,17 @@ The current version supports the classic (shortcode) checkout. Block checkout su
 
 == Changelog ==
 
+= 1.0.1 =
+* Declares incompatibility with the WooCommerce "blocks" checkout. The gateway is a classic gateway and never appeared on the blocks checkout; WooCommerce now warns the merchant instead of showing an empty payment section with no explanation.
+* Tested with WooCommerce 11.0.
+
 = 1.0.0 =
 * Initial release: hosted payment page, signed webhooks (HMAC V2 anti-replay with V1 fallback), idempotent payment creation, full and partial refunds, EUR/XPF, test mode, HPOS compatibility.
 
 == Upgrade Notice ==
+
+= 1.0.1 =
+Recommended if your Commande page uses the "blocks" checkout: WooCommerce will now tell you the gateway is not compatible, instead of leaving the payment section empty. Use the classic checkout shortcode to accept payments.
 
 = 1.0.0 =
 Initial release.

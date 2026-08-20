@@ -72,12 +72,18 @@ Tester sur les checkouts **classique ET blocks**, et avec HPOS activé.
 ## Limite connue — checkout « blocks » (2026-07-09)
 
 La passerelle est une passerelle **classique** (`WC_Payment_Gateway`). Elle s'affiche sur
-le **checkout classique** (shortcode `[woocommerce_checkout]`) — validé e2e sur
-WooCommerce 10.9.4 / WordPress 7.0. En revanche, sur le **checkout « blocks »** (le bloc
-`woocommerce/checkout`, format par défaut des installs récentes), elle **n'apparaît pas**
-(« No payment methods available ») : le plugin déclare la compat `cart_checkout_blocks`
-(FeaturesUtil) mais **ne fournit pas d'intégration de paiement blocks** (pas de
-`AbstractPaymentMethodType` enregistré via `woocommerce_blocks_payment_method_type_registration`).
+le **checkout classique** (shortcode `[woocommerce_checkout]`) — validé sur
+WooCommerce 10.9.4 puis **11.0.0** / WordPress 7.0. En revanche, sur le **checkout
+« blocks »** (le bloc `woocommerce/checkout`, format par défaut des installs récentes),
+elle **n'apparaît pas** (« No payment methods available »), faute d'intégration de
+paiement blocks (pas de `AbstractPaymentMethodType` enregistré via
+`woocommerce_blocks_payment_method_type_registration`).
+
+Depuis le 2026-08-10, le plugin **déclare cette incompatibilité** auprès de WooCommerce
+(`FeaturesUtil::declare_compatibility('cart_checkout_blocks', ..., false)`). Auparavant il
+ne déclarait rien du tout — ce README affirmait le contraire — et WooCommerce restait dans
+l'indéterminé : aucun avertissement, et le marchand découvrait le checkout vide sans rien
+pour le relier à ce plugin.
 
 Contournement immédiat pour le marchand : utiliser le checkout classique (remplacer le
 bloc de la page Commande par le shortcode `[woocommerce_checkout]`).
