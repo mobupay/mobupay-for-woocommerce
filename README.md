@@ -7,22 +7,25 @@ Passerelle de paiement Mobupay pour WooCommerce. Modèle **redirect / page hébe
 - WordPress >= 6.0, WooCommerce actif, PHP >= 7.4.
 - Une clé API Mobupay (`sk_test_*` pour tester, `sk_live_*` en production), depuis votre espace marchand > Développeurs > Clés API.
 
-## Construction du paquet (bundle du SDK)
-
-Le plugin dépend du SDK PHP `mobupay/mobupay-php`. À la construction :
-
-```bash
-cd connectors/woocommerce/mobupay-for-woocommerce
-composer install --no-dev --optimize-autoloader
-```
-
-`vendor/` (incluant le SDK) doit être inclus dans le zip distribué. Sans composer, copiez `sdk/php/` du dépôt dans `lib/mobupay-php/` (le plugin charge ce fallback automatiquement).
-
 ## Installation
 
-1. Zipper le dossier `mobupay-for-woocommerce/` (avec `vendor/`).
-2. WordPress > Extensions > Ajouter > Téléverser, puis activer.
-3. WooCommerce > Réglages > Paiements > **Mobupay**.
+L'archive distribuée embarque déjà le SDK PHP : **aucune construction, aucune commande à lancer** chez le marchand.
+
+1. Télécharger `mobupay-for-woocommerce-<version>.zip` depuis [les versions publiques](https://github.com/mobupay/mobupay-for-woocommerce/releases).
+2. WordPress > Extensions > Ajouter > Téléverser une extension, puis activer.
+3. WooCommerce > Réglages > Paiements > **Carte bancaire (Mobupay)**.
+
+L'extension apparaît dans le tunnel de commande **en blocs** comme dans le tunnel **classique**, sans réglage particulier (depuis la 1.1.0).
+
+## Construction du paquet (contributeurs uniquement)
+
+L'archive se construit depuis le monorepo, jamais à la main :
+
+```bash
+./scripts/build-connector-zip.sh woocommerce <version>
+```
+
+Le script copie le SDK dans `lib/mobupay-php/`, retire le transport cURL (inutile ici, la passerelle injecte toujours `wp_remote_request`) et refuse de produire une archive contenant une URL de recette ou un secret. Le plugin charge `vendor/autoload.php` s'il existe, sinon ce `lib/`, ce qui est le cas de l'archive distribuée. `composer install` ne sert qu'au développement local.
 
 ## Configuration
 
@@ -30,8 +33,7 @@ composer install --no-dev --optimize-autoloader
 |---|---|
 | Activer | Oui |
 | Mode test (sandbox) | Oui pour démarrer (clé `sk_test_*`) |
-| Clé API de test / production | Vos clés `sk_test_*` / `sk_live_*` |
-| Secret de signature des webhooks | Votre `whsec_*` (`GET /api/v1/webhooks/signing-secret` ou espace marchand) |
+| Clé API de test / production | Vos clés `sk_test_*` / `sk_live_*`. **Seul secret à saisir.** Le secret de signature des webhooks est récupéré automatiquement à l'enregistrement, et l'enregistrement vérifie du même coup que la clé est valide et vous dit dans quel environnement vous êtes |
 | Base API | `https://api.mobupay.nc` (ne modifier que sur instruction du support Mobupay) |
 
 **URL de webhook (`notificationUrl`)** affichée dans les réglages :
