@@ -67,14 +67,16 @@ if (!defined('ABSPATH')) {
 class Mobupay_Order_Payload
 {
     /**
-     * @param string $invoicing 'no' | 'yes' | 'yes_send'
+     * @param string $invoicing     'no' | 'yes' | 'yes_send'
+     * @param string $operationType 'GOODS' | 'SERVICES' | 'MIXED'
      * @return array{order: array<string,mixed>, degraded: bool, notes: string[]}
      */
     public static function build(
         WC_Order $order,
         bool $withItems,
         bool $withCustomer,
-        string $invoicing = 'no'
+        string $invoicing = 'no',
+        string $operationType = 'GOODS'
     ): array {
         $currency = $order->get_currency();
         $amount = \Mobupay\OrderPayload::toMinorUnits((float) $order->get_total(), $currency);
@@ -128,9 +130,28 @@ class Mobupay_Order_Payload
             if ($invoicing === 'yes_send') {
                 $payload['invoicing']['send'] = true;
             }
+            // Mention obligatoire (decret 2022-1299) : sans elle, la facture est
+            // creee en brouillon et n'est JAMAIS emise. On ne la devine pas, le
+            // marchand la declare une fois dans les reglages.
+            $payload['invoicing']['operationType'] = self::normalize_operation_type($operationType);
         }
 
         return ['order' => $payload, 'degraded' => $degraded, 'notes' => $notes];
+    }
+
+    /**
+     * Nature de l'operation, bornee aux trois valeurs que l'API accepte.
+     *
+     * Une valeur inconnue -- reglage jamais enregistre depuis la mise a jour,
+     * option ecrite a la main en base -- retombe sur la livraison de biens, qui
+     * est le cas d'une boutique en ligne. Envoyer une valeur hors domaine ferait
+     * refuser la charge utile, donc perdre la vente.
+     */
+    private static function normalize_operation_type(string $value): string
+    {
+        $value = strtoupper(trim($value));
+
+        return in_array($value, ['GOODS', 'SERVICES', 'MIXED'], true) ? $value : 'GOODS';
     }
 
     /**

@@ -3,7 +3,7 @@ Contributors: mobulia
 Tags: payments, payment gateway, credit card, woocommerce, new caledonia
 Requires at least: 6.0
 Tested up to: 7.1
-Stable tag: 1.2.0
+Stable tag: 1.4.0
 Requires PHP: 7.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -100,6 +100,14 @@ Yes. An invoice must carry the customer name and address, so "Customer details" 
 4. Order updated automatically after the signed webhook confirmation.
 
 == Changelog ==
+
+= 1.4.0 =
+* Several partial refunds per order, up to the amount paid: the API now accepts them.
+* Every Mobupay refund is logged as an order note with its amount, the total refunded so far and what remains, including refunds made from the Mobupay merchant dashboard. `payment.partially_refunded` was previously ignored.
+* Mobupay store assignment (multi-store).
+
+= 1.3.0 =
+* New "Nature of the transaction" setting: supply of goods, supply of services, or both. This is a mandatory invoice mention that Mobupay deliberately does not guess, since goods and services do not carry the same mentions and an issued invoice can only be corrected by a credit note. Without it, every requested invoice stayed a draft to be completed by hand, so the "Mobupay invoice" setting never actually produced an issued invoice. It defaults to supply of goods, which is what an online store sells, and is asked only once.
 
 = 1.2.0 =
 * One field to set up instead of two. The webhook signing secret is no longer typed in: the plugin retrieves it by itself from your API key, which already grants access to it. Saving the settings now also verifies the key and tells you which environment you are connected to, test or production, so a store cannot silently go live with a test key.

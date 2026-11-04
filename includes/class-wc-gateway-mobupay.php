@@ -174,6 +174,18 @@ class WC_Gateway_Mobupay extends WC_Payment_Gateway
                 'type' => 'title',
                 'description' => __('Ces réglages décident de ce que votre boutique transmet à chaque paiement. Tout est déduit automatiquement de la commande : vous n\'avez aucun champ à remplir. Les informations absentes du tunnel de commande sont simplement omises.', 'mobupay-for-woocommerce'),
             ],
+            // PLAN-621 — multi-boutique. Facultatif, et il doit le rester : la voie
+            // RECOMMANDEE est de rattacher la cle API a la boutique depuis l'espace
+            // marchand, auquel cas ce champ n'a pas a etre rempli et le site est
+            // reconnu tout seul. Ce champ sert le cas ou une meme cle equipe
+            // plusieurs sites.
+            'store_id' => [
+                'title' => __('Boutique Mobupay', 'mobupay-for-woocommerce'),
+                'type' => 'text',
+                'default' => '',
+                'placeholder' => __('Laisser vide dans la plupart des cas', 'mobupay-for-woocommerce'),
+                'description' => __('Code de la boutique Mobupay à laquelle rattacher les paiements de ce site (par exemple PAITA). À remplir uniquement si la même clé API équipe plusieurs sites : sinon, rattachez la clé à sa boutique depuis votre espace marchand et laissez ce champ vide.', 'mobupay-for-woocommerce'),
+            ],
             'send_order_details' => [
                 'title' => __('Détail de la commande', 'mobupay-for-woocommerce'),
                 'type' => 'checkbox',
@@ -198,6 +210,23 @@ class WC_Gateway_Mobupay extends WC_Payment_Gateway
                     'yes_send' => __('Établir une facture et l\'envoyer au client', 'mobupay-for-woocommerce'),
                 ],
                 'description' => __('Demande l\'émission d\'une facture Mobupay à chaque encaissement. Exige les coordonnées du client ci-dessus. Si une facture ne peut pas être établie, le paiement aboutit quand même et l\'anomalie est journalisée.', 'mobupay-for-woocommerce'),
+            ],
+            // La nature de l'operation est une MENTION OBLIGATOIRE de la facture
+            // (decret 2022-1299). Mobupay ne la devine pas : biens et services ne
+            // portent pas les memes mentions, et une facture emise ne se corrige
+            // que par un avoir. Sans ce reglage, toute facture demandee restait
+            // un brouillon a completer a la main, ce qui vidait de son sens le
+            // reglage precedent.
+            'operation_type' => [
+                'title' => __('Nature de l\'opération', 'mobupay-for-woocommerce'),
+                'type' => 'select',
+                'default' => 'GOODS',
+                'options' => [
+                    'GOODS' => __('Livraison de biens', 'mobupay-for-woocommerce'),
+                    'SERVICES' => __('Prestation de services', 'mobupay-for-woocommerce'),
+                    'MIXED' => __('Les deux', 'mobupay-for-woocommerce'),
+                ],
+                'description' => __('Mention obligatoire de la facture. Une boutique qui vend des produits laisse « Livraison de biens ». Choisissez « Les deux » si vos commandes mêlent produits et prestations.', 'mobupay-for-woocommerce'),
             ],
             'api_base' => [
                 'title' => __('Base API', 'mobupay-for-woocommerce'),
@@ -233,6 +262,14 @@ class WC_Gateway_Mobupay extends WC_Payment_Gateway
             $opts['email'] = $email;                                       // omis si absent (l'API n'accepte pas null)
         }
 
+        // PLAN-621 — boutique emettrice. Champ de PREMIER NIVEAU : le SDK fusionne
+        // `$opts` a la racine du corps. Le mettre dans `order` serait invisible,
+        // le schema de commande supprimant les cles inconnues sans rien dire.
+        $storeId = trim((string) $this->get_option('store_id', ''));
+        if ($storeId !== '') {
+            $opts['storeId'] = $storeId;
+        }
+
         // PLAN-581 — detail de commande et coordonnees client. Tout est deduit de
         // la commande WooCommerce : aucun champ a saisir cote marchand. Ce qui
         // manque dans le tunnel est omis, jamais envoye vide.
@@ -240,7 +277,8 @@ class WC_Gateway_Mobupay extends WC_Payment_Gateway
             $order,
             $this->get_option('send_order_details', 'yes') === 'yes',
             $this->get_option('send_customer_details', 'yes') === 'yes',
-            (string) $this->get_option('invoicing', 'no')
+            (string) $this->get_option('invoicing', 'no'),
+            (string) $this->get_option('operation_type', 'GOODS')
         );
         foreach ($built['notes'] as $note) {
             $this->log('order payload: ' . $note);
@@ -390,8 +428,14 @@ class WC_Gateway_Mobupay extends WC_Payment_Gateway
                     $order->update_status('cancelled', __('Paiement Mobupay abandonné / expiré.', 'mobupay-for-woocommerce'));
                 }
                 break;
+            case 'payment.partially_refunded':
             case 'payment.refunded':
-                $order->add_order_note(__('Remboursement Mobupay enregistré.', 'mobupay-for-woocommerce'));
+                // Plusieurs remboursements partiels sont possibles, jusqu'au total : la
+                // note dit CE remboursement, le cumul et ce qui reste, dans la devise de
+                // la commande. Jamais `amount`, qui est en centimes d'euro internes.
+                // `payment.refunded` part quand le paiement est solde, y compris par un
+                // dernier remboursement partiel.
+                $order->add_order_note($this->refund_note($data, $order->get_currency(), ($event['type'] ?? '') === 'payment.refunded'));
                 break;
         }
 
@@ -448,6 +492,38 @@ class WC_Gateway_Mobupay extends WC_Payment_Gateway
         $body = $e->getResponseBody();
         $code = is_array($body) && isset($body['code']) ? (string) $body['code'] : '';
         return strpos($code, 'INVOICING') !== false || strpos($code, 'BILLING') !== false;
+    }
+
+    /**
+     * Note de commande d'un remboursement Mobupay, montants dans la devise d'origine.
+     *
+     * Un remboursement lance depuis WooCommerce declenche aussi cet evenement : la note
+     * le confirme, elle ne cree AUCUN remboursement WooCommerce (il existe deja). Un
+     * remboursement fait depuis l'espace marchand Mobupay n'est signale que par elle.
+     */
+    private function refund_note(array $data, string $currency, bool $solde): string
+    {
+        $fmt = function ($minor) use ($currency) {
+            if ($minor === null || $minor === '') {
+                return null;
+            }
+            $value = strtoupper($currency) === 'XPF' ? (float) $minor : ((float) $minor) / 100;
+            return wc_price($value, ['currency' => $currency]);
+        };
+        $ce = $fmt($data['refundOriginalAmount'] ?? null);
+        $cumul = $fmt($data['totalRefundedOriginalAmount'] ?? null);
+        $reste = $fmt($data['remainingOriginalAmount'] ?? null);
+        if ($ce === null) {
+            return $solde
+                ? __('Remboursement Mobupay enregistré : paiement intégralement remboursé.', 'mobupay-for-woocommerce')
+                : __('Remboursement partiel Mobupay enregistré.', 'mobupay-for-woocommerce');
+        }
+        if ($solde) {
+            /* translators: 1: montant de ce remboursement, 2: cumul rembourse */
+            return sprintf(__('Remboursement Mobupay de %1$s enregistré. Paiement intégralement remboursé (%2$s).', 'mobupay-for-woocommerce'), $ce, (string) $cumul);
+        }
+        /* translators: 1: montant de ce remboursement, 2: cumul rembourse, 3: reste remboursable */
+        return sprintf(__('Remboursement partiel Mobupay de %1$s enregistré. Total remboursé : %2$s, reste remboursable : %3$s.', 'mobupay-for-woocommerce'), $ce, (string) $cumul, (string) $reste);
     }
 
     private function to_minor_units(float $amount, string $currency): int

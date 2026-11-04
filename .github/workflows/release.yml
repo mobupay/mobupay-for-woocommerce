@@ -8,55 +8,72 @@ name: Release
 # (constaté le 2026-08-20). Créée par un workflow, elle est attribuée à
 # github-actions[bot], qui n'est le compte de personne.
 #
+# DÉCLENCHEMENT PAR L'ÉTIQUETTE, ET PAR ELLE SEULE (PLAN-1383). L'ancien
+# déclenchement manuel (`workflow_dispatch`) affichait publiquement, dans l'onglet
+# Actions, le compte personnel qui avait cliqué (« Manually run by ... »), alors
+# même que la release était attribuée au bot. Une exécution déclenchée par une
+# poussée d'étiquette porte le compte qui POUSSE, soit le compte machine
+# `mobupay-tech` utilisé par scripts/publish-connector.sh du monorepo. Ne pas
+# rajouter de `workflow_dispatch` : quelqu'un finirait par le lancer sous son nom.
+#
 # Le zip reproduit exactement scripts/build-connector-zip.sh du monorepo : le SDK
 # PHP est empaqueté dans lib/ parce qu'un marchand WordPress n'a pas composer.
 
 on:
-  workflow_dispatch:
-    inputs:
-      tag:
-        description: "Étiquette à publier (elle doit déjà exister, ex : v1.0.0)"
-        required: true
-        default: "v1.0.0"
-      sdk_ref:
-        description: "Référence du SDK PHP à empaqueter dans lib/ (étiquette de mobupay/mobupay-php)"
-        required: true
-        default: "v1.0.0"
-      title:
-        description: "Titre de la release (laisser vide pour reprendre le nom de l'étiquette)"
-        required: false
-        default: ""
-      notes:
-        description: "Notes de version (laisser vide pour les notes générées par GitHub)"
-        required: false
-        default: ""
+  push:
+    tags:
+      - "v*"
 
 permissions:
   contents: write
+
+env:
+  SLUG: mobupay-for-woocommerce
+  PRODUCT: Mobupay for WooCommerce
+  # Étiquette de mobupay/mobupay-php empaquetée dans lib/.
+  # PLAN-960 : la v1.0.0 envoie `amount` au remboursement, que l'API IGNORE :
+  # tout remboursement partiel partait en TOTALITE. `amountCents` depuis la v1.1.0.
+  SDK_REF: v1.1.0
 
 jobs:
   release:
     runs-on: ubuntu-latest
     steps:
-      - name: Récupérer le plugin à l'étiquette demandée
+      - name: Récupérer le plugin à l'étiquette poussée
         uses: actions/checkout@v7
         with:
-          ref: ${{ inputs.tag }}
+          ref: ${{ github.ref }}
           path: plugin
+          # Historique et étiquettes complets : les notes de version vont de
+          # l'étiquette précédente à celle-ci.
+          fetch-depth: 0
+
+      - name: Vérifier que l'étiquette et le plugin annoncent la même version
+        working-directory: plugin
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          VERSION="${TAG#v}"
+          DECLAREE=$(sed -n 's/^[[:space:]]*\*[[:space:]]*Version:[[:space:]]*\([0-9.]*\).*/\1/p' mobupay-for-woocommerce.php | head -1)
+          STABLE=$(sed -n 's/^Stable tag:[[:space:]]*\([0-9.]*\).*/\1/p' readme.txt | head -1)
+          if [ "$DECLAREE" != "$VERSION" ] || [ "$STABLE" != "$VERSION" ]; then
+            echo "::error::Étiquette $TAG, mais le plugin déclare Version: $DECLAREE et Stable tag: $STABLE. Release refusée."
+            exit 1
+          fi
 
       - name: Récupérer le SDK PHP
         uses: actions/checkout@v7
         with:
           repository: mobupay/mobupay-php
-          ref: ${{ inputs.sdk_ref }}
+          ref: ${{ env.SDK_REF }}
           path: sdk
 
       - name: Construire le zip distribuable
         env:
-          TAG: ${{ inputs.tag }}
+          TAG: ${{ github.ref_name }}
         run: |
           set -euo pipefail
-          SLUG=mobupay-for-woocommerce
           VERSION="${TAG#v}"
           STAGE="$(mktemp -d)"
           mkdir -p "$STAGE/$SLUG"
@@ -71,6 +88,13 @@ jobs:
 
           # 2. SDK dans lib/mobupay-php (source + LICENSE + composer.json).
           mkdir -p "$STAGE/$SLUG/lib/mobupay-php/src"
+          # PLAN-960 — GARDE : le SDK empaquete doit envoyer `amountCents` au
+          # remboursement. Un SDK anterieur envoie `amount`, que l'API ignore, et chaque
+          # remboursement partiel rembourserait la TOTALITE du paiement.
+          if ! grep -q "amountCents" sdk/src/MobupayClient.php; then
+            echo "::error::Le SDK $SDK_REF n'envoie pas amountCents au remboursement : release refusee."
+            exit 1
+          fi
           cp sdk/src/*.php     "$STAGE/$SLUG/lib/mobupay-php/src/"
           cp sdk/LICENSE       "$STAGE/$SLUG/lib/mobupay-php/LICENSE"
           cp sdk/composer.json "$STAGE/$SLUG/lib/mobupay-php/composer.json"
@@ -101,26 +125,43 @@ jobs:
           echo "--- contenu du zip ---"
           unzip -Z1 "$ZIP" | sort
 
+      - name: Extraire les notes de version du changelog
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          VERSION="${TAG#v}"
+          # Étiquette précédente : les notes couvrent toutes les versions entre les
+          # deux, y compris celles qui n'ont jamais eu d'étiquette.
+          PREV=$(git -C plugin describe --tags --abbrev=0 "$TAG^" 2>/dev/null || true)
+          PREV="${PREV#v}"
+          # readme.txt : section « == Changelog == », une entrée par « = X.Y.Z = ».
+          awk -v v="$VERSION" -v p="$PREV" '
+            /^== / && on { exit }
+            /^= [0-9]/ {
+              if (on && (p == "" || $2 == p)) exit
+              if ($2 == v) on = 1
+              if (on) { print "### " $2; next }
+            }
+            on { print }
+          ' plugin/readme.txt > notes.md
+          echo "--- notes ---"
+          cat notes.md
+
       - name: Créer la release
         env:
           GH_TOKEN: ${{ github.token }}
-          TAG: ${{ inputs.tag }}
-          TITLE: ${{ inputs.title }}
-          NOTES: ${{ inputs.notes }}
+          TAG: ${{ github.ref_name }}
         run: |
           set -euo pipefail
           if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             echo "[ERR] La release $TAG existe déjà." >&2
             echo "      Son auteur n'étant pas modifiable, la supprimer d'abord," >&2
-            echo "      puis relancer ce workflow." >&2
+            echo "      puis repousser l'étiquette." >&2
             exit 1
           fi
-          # Le titre par défaut est le nom de l'étiquette, mais une release déjà
-          # publiée porte souvent un titre lisible : le reprendre à l'identique
-          # évite de dégrader ce que voit un marchand.
-          [ -n "$TITLE" ] || TITLE="$TAG"
-          if [ -n "$NOTES" ]; then
-            printf '%s\n' "$NOTES" > notes.md
+          TITLE="$PRODUCT ${TAG#v}"
+          if [ -s notes.md ]; then
             gh release create "$TAG" "$ZIP" --repo "$GITHUB_REPOSITORY" \
               --title "$TITLE" --notes-file notes.md
           else

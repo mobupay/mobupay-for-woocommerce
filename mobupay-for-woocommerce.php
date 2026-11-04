@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Mobupay for WooCommerce
  * Description: Acceptez les paiements par carte via Mobupay (agent de paiement eZyness). Le client paie sur une page hébergée sécurisée, votre commande est mise à jour par webhook signé.
- * Version: 1.2.0
+ * Version: 1.4.0
  * Requires PHP: 7.4
  * Requires at least: 6.0
  * Requires Plugins: woocommerce
@@ -25,7 +25,7 @@ if (!defined('ABSPATH')) {
     exit; // Acces direct interdit.
 }
 
-define('MOBUPAY_WC_VERSION', '1.2.0');
+define('MOBUPAY_WC_VERSION', '1.4.0');
 define('MOBUPAY_WC_PLUGIN_FILE', __FILE__);
 
 // Autoload du SDK PHP Mobupay (mobupay/mobupay-php), bundle dans vendor/ a la
