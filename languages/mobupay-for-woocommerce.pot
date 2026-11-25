@@ -113,7 +113,7 @@ msgid "Le paiement n'a pas pu être initialisé. Réessayez."
 msgstr ""
 
 #: includes/class-wc-gateway-mobupay.php:168
-msgid "En attente du paiement Mobupay."
+msgid "Redirection vers la page de paiement Mobupay."
 msgstr ""
 
 #: includes/class-wc-gateway-mobupay.php:217

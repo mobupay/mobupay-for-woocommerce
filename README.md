@@ -42,7 +42,7 @@ Le script copie le SDK dans `lib/mobupay-php/`, retire le transport cURL (inutil
 ## Fonctionnement
 
 1. Le client choisit « Carte bancaire (Mobupay) » et valide.
-2. `process_payment()` crée une session Mobupay (`reference` = n° de commande, `externalId` = id de commande, `Idempotency-Key` anti double-paiement) et redirige vers la page hébergée. La commande passe en **en attente** (`on-hold`).
+2. `process_payment()` crée une session Mobupay (`reference` = n° de commande, `externalId` = id de commande, `Idempotency-Key` anti double-paiement) et redirige vers la page hébergée. La commande **reste en attente de paiement** (`pending`) : WooCommerce n'envoie aucun courriel et ne sort pas le stock tant que le paiement n'est pas confirmé (PLAN-1631).
 3. Le client paie. Mobupay envoie un **webhook signé** à `notificationUrl`.
 4. Le plugin **vérifie la signature** (`Webhook::verify`, V2 anti-rejeu + repli V1), rapproche la commande via `externalId`, puis :
    - `payment.captured` / `payment.authorized` → commande **payée** ;
@@ -61,9 +61,9 @@ Depuis WooCommerce > Commandes > (commande) > Rembourser : `process_refund()` ap
 
 | Scénario | Attendu |
 |---|---|
-| Paiement réussi | Commande `on-hold` → `processing`/`completed` après webhook `payment.captured` |
+| Paiement réussi | Commande `pending` → `processing`/`completed` après webhook `payment.captured` ; courriels et sortie de stock à ce moment-là |
 | Refus carte | Webhook `payment.failed` → commande `failed` |
-| Abandon / fermeture onglet | Pas de webhook capture ; à l'expiration, `payment.expired` → `cancelled` |
+| Abandon / fermeture onglet | Commande `pending`, aucun courriel, stock inchangé ; à l'expiration, `payment.expired` → `cancelled` |
 | Double soumission (même panier) | Idempotency-Key → un seul paiement |
 | Rejeu de webhook (même `event.id`) | Ignoré (idempotence receiver) |
 | Remboursement total puis partiel | API refund OK, notes de commande |

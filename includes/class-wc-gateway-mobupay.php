@@ -12,8 +12,13 @@ use Mobupay\MobupayException;
  * Passerelle de paiement Mobupay pour WooCommerce (PLAN-177 Phase 1).
  *
  * Flux : process_payment() cree une session Mobupay et redirige le client vers
- * la page hebergee ; la commande passe en "on-hold" (en attente de confirmation).
+ * la page hebergee ; la commande RESTE en "pending" (en attente de paiement).
  * Le statut final est pilote par le webhook signe (jamais par le retour navigateur).
+ *
+ * PLAN-1631 (BUG-00749) : process_payment() ne change AUCUN statut. Le passage en
+ * "on-hold" qui s'y trouvait faisait envoyer par WooCommerce "Nouvelle commande" et
+ * "Commande en attente", et sortait le stock, pour chaque panier abandonne. Ces effets
+ * partent desormais a payment_complete(), au paiement confirme.
  */
 class WC_Gateway_Mobupay extends WC_Payment_Gateway
 {
@@ -337,7 +342,9 @@ class WC_Gateway_Mobupay extends WC_Payment_Gateway
 
         // Memorise l'id de paiement Mobupay pour le rapprochement / refund.
         $order->update_meta_data('_mobupay_payment_id', $session['paymentId'] ?? '');
-        $order->update_status('on-hold', __('En attente du paiement Mobupay.', 'mobupay-for-woocommerce'));
+        // La commande reste "pending" : aucun courriel, aucune sortie de stock avant la
+        // notification signee (PLAN-1631). Une note ne change pas le statut.
+        $order->add_order_note(__('Redirection vers la page de paiement Mobupay.', 'mobupay-for-woocommerce'));
         $order->save();
 
         return [

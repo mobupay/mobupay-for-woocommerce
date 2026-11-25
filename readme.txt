@@ -3,7 +3,7 @@ Contributors: mobulia
 Tags: payments, payment gateway, credit card, woocommerce, new caledonia
 Requires at least: 6.0
 Tested up to: 7.1
-Stable tag: 1.4.0
+Stable tag: 1.4.1
 Requires PHP: 7.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -101,6 +101,9 @@ Yes. An invoice must carry the customer name and address, so "Customer details" 
 
 == Changelog ==
 
+= 1.4.1 =
+* The order now stays "Pending payment" until Mobupay confirms the payment. It was previously set to "On hold" before the customer paid, so WooCommerce sent the "New order" and "Order on hold" emails and reduced stock for every abandoned checkout. Emails and stock reduction now happen when the payment is confirmed.
+
 = 1.4.0 =
 * Several partial refunds per order, up to the amount paid: the API now accepts them.
 * Every Mobupay refund is logged as an order note with its amount, the total refunded so far and what remains, including refunds made from the Mobupay merchant dashboard. `payment.partially_refunded` was previously ignored.
@@ -130,6 +133,9 @@ Yes. An invoice must carry the customer name and address, so "Customer details" 
 * Initial release: hosted payment page, signed webhooks (HMAC V2 anti-replay with V1 fallback), idempotent payment creation, full and partial refunds, EUR/XPF, test mode, HPOS compatibility.
 
 == Upgrade Notice ==
+
+= 1.4.1 =
+Recommended for everyone. An abandoned checkout no longer sends order emails nor reduces stock: the order stays "Pending payment" until the payment is confirmed.
 
 = 1.2.0 =
 Recommended for everyone. Setup is now a single field: the plugin retrieves the webhook signing secret from your API key, and saving the settings tells you whether you are connected to test or production. A payment is never refused because invoicing data is missing.
